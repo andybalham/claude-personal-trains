@@ -153,6 +153,40 @@
       margin-top: 1rem;
       font-size: 0.95rem;
     }
+
+    @media (max-width: 600px) {
+      body {
+        padding: 0.75rem;
+      }
+
+      header h1 {
+        font-size: 1.15rem;
+      }
+
+      .controls {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.8rem;
+      }
+
+      #refresh-btn {
+        padding: 0.4rem 0.75rem;
+        font-size: 0.8rem;
+      }
+
+      /* Hide Arrives (col 2) and Operator (col 5) on mobile */
+      #departures-table th:nth-child(2),
+      #departures-table td:nth-child(2),
+      #departures-table th:nth-child(5),
+      #departures-table td:nth-child(5) {
+        display: none;
+      }
+
+      #departures-table th,
+      #departures-table td {
+        padding: 0.5rem 0.6rem;
+        font-size: 0.85rem;
+      }
+    }
   </style>
 </head>
 <body>
@@ -175,7 +209,7 @@
         <tr>
           <th>Departs</th>
           <th>Arrives</th>
-          <th>Journey Time</th>
+          <th>Duration</th>
           <th>Platform</th>
           <th>Operator</th>
           <th>Status</th>
