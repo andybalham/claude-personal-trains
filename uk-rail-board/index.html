@@ -333,6 +333,7 @@
       });
 
       checkForAlerts(services);
+      updateAlertBanner(services);
     }
 
     function addCell(tr, text) {
@@ -389,13 +390,33 @@
         // Ready
       } else if (Notification.permission === "default") {
         Notification.requestPermission().then(function (result) {
-          if (result === "denied") {
+          if (result === "granted") {
+            notificationStatus.textContent = "Notifications enabled";
+            notificationStatus.style.display = "block";
+            setTimeout(function () { notificationStatus.style.display = "none"; }, 3000);
+          } else if (result === "denied") {
             notificationStatus.style.display = "block";
           }
         });
       } else {
         notificationStatus.style.display = "block";
       }
+    }
+
+    function updateAlertBanner(services) {
+      var cancelled = services.filter(function (s) { return s.isCancelled; }).length;
+      var delayed = services.filter(function (s) { return s.delayMinutes != null && s.delayMinutes >= 15; }).length;
+
+      if (cancelled === 0 && delayed === 0) {
+        alertBanner.style.display = "none";
+        return;
+      }
+
+      var parts = [];
+      if (cancelled > 0) parts.push(cancelled + " cancellation" + (cancelled > 1 ? "s" : ""));
+      if (delayed > 0) parts.push(delayed + " service" + (delayed > 1 ? "s" : "") + " delayed 15+ min");
+      alertBanner.textContent = parts.join(" \u2022 ");
+      alertBanner.style.display = "block";
     }
 
     function checkForAlerts(services) {
