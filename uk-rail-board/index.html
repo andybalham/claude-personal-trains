@@ -189,7 +189,249 @@
   <div id="error-message"></div>
 
   <script>
-    // JavaScript will be added in Phase 6
+    // --- CRS station name lookup ---
+    const STATION_NAMES = {
+      KGX: "London King's Cross", STP: "London St Pancras", PAD: "London Paddington",
+      EUS: "London Euston", VIC: "London Victoria", WAT: "London Waterloo",
+      CHX: "London Charing Cross", LST: "London Liverpool Street", FST: "London Fenchurch Street",
+      MYB: "London Marylebone", LBG: "London Bridge", BHM: "Birmingham New Street",
+      MAN: "Manchester Piccadilly", LDS: "Leeds", EDB: "Edinburgh",
+      GLC: "Glasgow Central", GLQ: "Glasgow Queen Street", BRI: "Bristol Temple Meads",
+      NCL: "Newcastle", SHF: "Sheffield", LIV: "Liverpool Lime Street",
+      NOT: "Nottingham", CBG: "Cambridge", OXF: "Oxford", RDG: "Reading",
+      YRK: "York", CDF: "Cardiff Central", BHI: "Bournemouth", GTW: "Gatwick Airport",
+      STN: "Stansted Airport", LTN: "Luton Airport Parkway", PLY: "Plymouth",
+      EXD: "Exeter St Davids", BTN: "Brighton", ABD: "Aberdeen", IVS: "Inverness",
+      PBO: "Peterborough", DON: "Doncaster", DAR: "Darlington", COV: "Coventry",
+    };
+
+    function stationName(crs) {
+      return STATION_NAMES[crs.toUpperCase()] || crs.toUpperCase();
+    }
+
+    // --- DOM references ---
+    const routeTitle = document.getElementById("route-title");
+    const lastUpdatedEl = document.getElementById("last-updated");
+    const countdownEl = document.getElementById("countdown");
+    const refreshBtn = document.getElementById("refresh-btn");
+    const tbody = document.getElementById("departures-body");
+    const errorMessage = document.getElementById("error-message");
+    const alertBanner = document.getElementById("alert-banner");
+    const notificationStatus = document.getElementById("notification-status");
+
+    // --- Read URL params ---
+    const params = new URLSearchParams(window.location.search);
+    const fromCrs = params.get("from");
+    const toCrs = params.get("to");
+
+    // --- Validate CRS codes ---
+    const CRS_RE = /^[A-Z]{3}$/;
+
+    function init() {
+      if (!fromCrs || !toCrs || !CRS_RE.test(fromCrs.toUpperCase()) || !CRS_RE.test(toCrs.toUpperCase())) {
+        routeTitle.textContent = "Invalid Route";
+        showError("Please provide valid 3-letter CRS station codes in the URL, e.g. ?from=KGX&to=EDB");
+        return;
+      }
+
+      routeTitle.textContent = stationName(fromCrs) + " \u2192 " + stationName(toCrs);
+      document.title = stationName(fromCrs) + " \u2192 " + stationName(toCrs) + " — UK Rail Departures";
+
+      initNotifications();
+      fetchDepartures();
+      startCountdown();
+
+      refreshBtn.addEventListener("click", function () {
+        fetchDepartures();
+        resetCountdown();
+      });
+    }
+
+    // --- Error display ---
+    function showError(msg) {
+      errorMessage.textContent = msg;
+      errorMessage.style.display = "block";
+    }
+
+    function hideError() {
+      errorMessage.style.display = "none";
+    }
+
+    // --- Fetch departures ---
+    async function fetchDepartures() {
+      try {
+        const res = await fetch("/.netlify/functions/departures?from=" + encodeURIComponent(fromCrs) + "&to=" + encodeURIComponent(toCrs));
+        if (!res.ok) {
+          const body = await res.json().catch(function () { return {}; });
+          throw new Error(body.error || "Request failed with status " + res.status);
+        }
+        const services = await res.json();
+        hideError();
+        renderTable(services);
+        updateLastUpdated();
+      } catch (err) {
+        showError("Failed to load departures: " + err.message);
+      }
+    }
+
+    // --- Render table ---
+    function renderTable(services) {
+      tbody.innerHTML = "";
+
+      if (services.length === 0) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 6;
+        td.style.textAlign = "center";
+        td.style.padding = "2rem";
+        td.textContent = "No departures found for this route.";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+        return;
+      }
+
+      services.forEach(function (svc) {
+        const tr = document.createElement("tr");
+        if (svc.isCancelled) tr.className = "row-cancelled";
+
+        // Departs
+        addCell(tr, svc.scheduledDeparture || "—");
+
+        // Arrives
+        addCell(tr, svc.scheduledArrival || "—");
+
+        // Journey Time
+        if (svc.journeyMinutes != null) {
+          const h = Math.floor(svc.journeyMinutes / 60);
+          const m = svc.journeyMinutes % 60;
+          addCell(tr, (h > 0 ? h + "h " : "") + m + "m");
+        } else {
+          addCell(tr, "—");
+        }
+
+        // Platform
+        addCell(tr, (svc.platform && svc.platform !== "0") ? svc.platform : "TBC");
+
+        // Operator
+        addCell(tr, svc.operator || "—");
+
+        // Status
+        const statusTd = document.createElement("td");
+        if (svc.isCancelled) {
+          statusTd.textContent = "Cancelled";
+          statusTd.className = "status-cancelled";
+        } else if (svc.delayMinutes > 0) {
+          statusTd.textContent = "Delayed " + svc.delayMinutes + "m";
+          statusTd.className = "status-delayed";
+        } else {
+          statusTd.textContent = "On time";
+          statusTd.className = "status-on-time";
+        }
+        tr.appendChild(statusTd);
+
+        tbody.appendChild(tr);
+      });
+
+      checkForAlerts(services);
+    }
+
+    function addCell(tr, text) {
+      const td = document.createElement("td");
+      td.textContent = text;
+      tr.appendChild(td);
+    }
+
+    // --- Last updated ---
+    function updateLastUpdated() {
+      const now = new Date();
+      lastUpdatedEl.textContent =
+        String(now.getHours()).padStart(2, "0") + ":" +
+        String(now.getMinutes()).padStart(2, "0") + ":" +
+        String(now.getSeconds()).padStart(2, "0");
+    }
+
+    // --- Countdown & auto-refresh ---
+    const REFRESH_INTERVAL_S = 900; // 15 minutes
+    var countdownSeconds = REFRESH_INTERVAL_S;
+    var countdownTimer = null;
+
+    function formatCountdown(s) {
+      var mm = String(Math.floor(s / 60)).padStart(2, "0");
+      var ss = String(s % 60).padStart(2, "0");
+      return mm + ":" + ss;
+    }
+
+    function startCountdown() {
+      countdownSeconds = REFRESH_INTERVAL_S;
+      countdownEl.textContent = formatCountdown(countdownSeconds);
+      countdownTimer = setInterval(function () {
+        countdownSeconds--;
+        countdownEl.textContent = formatCountdown(countdownSeconds);
+        if (countdownSeconds <= 0) {
+          fetchDepartures();
+          resetCountdown();
+        }
+      }, 1000);
+    }
+
+    function resetCountdown() {
+      countdownSeconds = REFRESH_INTERVAL_S;
+      countdownEl.textContent = formatCountdown(countdownSeconds);
+    }
+
+    // --- Browser notifications ---
+    var notifiedServices = new Set();
+
+    function initNotifications() {
+      if (!("Notification" in window)) return;
+
+      if (Notification.permission === "granted") {
+        // Ready
+      } else if (Notification.permission === "default") {
+        Notification.requestPermission().then(function (result) {
+          if (result === "denied") {
+            notificationStatus.style.display = "block";
+          }
+        });
+      } else {
+        notificationStatus.style.display = "block";
+      }
+    }
+
+    function checkForAlerts(services) {
+      if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+      services.forEach(function (svc) {
+        if (svc.isCancelled) {
+          var key = "cancel-" + svc.scheduledDeparture + "-" + svc.operator;
+          if (!notifiedServices.has(key)) {
+            notifiedServices.add(key);
+            fireNotification(
+              "\uD83D\uDEAB Cancellation",
+              "The " + svc.scheduledDeparture + " " + svc.operator + " service to " + svc.destination + " has been cancelled"
+            );
+          }
+        } else if (svc.delayMinutes != null && svc.delayMinutes >= 15) {
+          var bucket = Math.floor(svc.delayMinutes / 5) * 5;
+          var key = "delay-" + svc.scheduledDeparture + "-" + svc.operator + "-" + bucket;
+          if (!notifiedServices.has(key)) {
+            notifiedServices.add(key);
+            fireNotification(
+              "\u26A0\uFE0F Delay",
+              "The " + svc.scheduledDeparture + " " + svc.operator + " service is delayed by " + svc.delayMinutes + " minutes"
+            );
+          }
+        }
+      });
+    }
+
+    function fireNotification(title, body) {
+      var n = new Notification(title, { body: body });
+      n.onclick = function () { window.focus(); };
+    }
+
+    // --- Start ---
+    init();
   </script>
 </body>
 </html>
