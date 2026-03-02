@@ -1,4 +1,4 @@
-const { Darwin } = require("darwin-ldb-node");
+import { Darwin } from "darwin-ldb-node";
 
 const WSDL_URL =
   "https://lite.realtime.nationalrail.co.uk/OpenLDBWS/wsdl.aspx?ver=2021-11-01";
@@ -100,7 +100,7 @@ function mapService(service, toCrs) {
   };
 }
 
-exports.handler = async function (event) {
+export const handler = async function (event) {
   const params = event.queryStringParameters || {};
   const from = params.from;
   const to = params.to;
