@@ -13,10 +13,11 @@
 
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      background: #0a0e17;
-      color: #e0e0e0;
+      background: #f5f6fa;
+      color: #1a1a2e;
       padding: 1.5rem;
       min-height: 100vh;
+      transition: background 0.3s, color 0.3s;
     }
 
     header {
@@ -26,7 +27,7 @@
     header h1 {
       font-size: 1.5rem;
       font-weight: 600;
-      color: #fff;
+      color: #111;
     }
 
     #notification-status {
@@ -56,13 +57,14 @@
       gap: 0.75rem;
       margin-bottom: 1rem;
       padding: 0.75rem 1rem;
-      background: #141a2a;
+      background: #e8eaf0;
       border-radius: 6px;
+      transition: background 0.3s;
     }
 
     .controls span {
       font-size: 0.9rem;
-      color: #b0bec5;
+      color: #546e7a;
     }
 
     #refresh-btn {
@@ -80,10 +82,28 @@
       background: #1976d2;
     }
 
+    #theme-toggle {
+      background: none;
+      border: 1px solid #b0bec5;
+      border-radius: 4px;
+      padding: 0.4rem 0.7rem;
+      font-size: 1rem;
+      cursor: pointer;
+      color: #546e7a;
+      transition: color 0.3s, border-color 0.3s;
+      line-height: 1;
+    }
+
+    #theme-toggle:hover {
+      border-color: #1565c0;
+      color: #1565c0;
+    }
+
     .table-wrapper {
       overflow-x: auto;
       border-radius: 6px;
-      border: 1px solid #1e293b;
+      border: 1px solid #d0d4e0;
+      transition: border-color 0.3s;
     }
 
     #departures-table {
@@ -93,34 +113,37 @@
     }
 
     #departures-table thead {
-      background: #1a2236;
+      background: #dde1ea;
+      transition: background 0.3s;
     }
 
     #departures-table th {
       text-align: left;
       padding: 0.75rem 1rem;
       font-weight: 600;
-      color: #90caf9;
-      border-bottom: 2px solid #263250;
+      color: #1565c0;
+      border-bottom: 2px solid #c5cad6;
       white-space: nowrap;
+      transition: color 0.3s, border-color 0.3s;
     }
 
     #departures-table td {
       padding: 0.65rem 1rem;
-      border-bottom: 1px solid #1e293b;
+      border-bottom: 1px solid #e0e3eb;
       white-space: nowrap;
+      transition: border-color 0.3s;
     }
 
     #departures-table tbody tr:nth-child(even) {
-      background: #111827;
+      background: #f0f1f5;
     }
 
     #departures-table tbody tr:nth-child(odd) {
-      background: #0d1220;
+      background: #fff;
     }
 
     #departures-table tbody tr:hover {
-      background: #1a2744;
+      background: #e3e8f0;
     }
 
     .status-on-time {
@@ -145,13 +168,76 @@
 
     #error-message {
       display: none;
-      background: #2c1010;
+      background: #fff0f0;
       border: 1px solid #e53935;
       border-radius: 6px;
-      color: #ef9a9a;
+      color: #c62828;
       padding: 1rem 1.25rem;
       margin-top: 1rem;
       font-size: 0.95rem;
+      transition: background 0.3s, color 0.3s;
+    }
+
+    /* --- Dark theme overrides --- */
+    body.dark {
+      background: #0a0e17;
+      color: #e0e0e0;
+    }
+
+    body.dark header h1 {
+      color: #fff;
+    }
+
+    body.dark .controls {
+      background: #141a2a;
+    }
+
+    body.dark .controls span {
+      color: #b0bec5;
+    }
+
+    body.dark #theme-toggle {
+      color: #b0bec5;
+      border-color: #546e7a;
+    }
+
+    body.dark #theme-toggle:hover {
+      border-color: #90caf9;
+      color: #90caf9;
+    }
+
+    body.dark .table-wrapper {
+      border-color: #1e293b;
+    }
+
+    body.dark #departures-table thead {
+      background: #1a2236;
+    }
+
+    body.dark #departures-table th {
+      color: #90caf9;
+      border-bottom-color: #263250;
+    }
+
+    body.dark #departures-table td {
+      border-bottom-color: #1e293b;
+    }
+
+    body.dark #departures-table tbody tr:nth-child(even) {
+      background: #111827;
+    }
+
+    body.dark #departures-table tbody tr:nth-child(odd) {
+      background: #0d1220;
+    }
+
+    body.dark #departures-table tbody tr:hover {
+      background: #1a2744;
+    }
+
+    body.dark #error-message {
+      background: #2c1010;
+      color: #ef9a9a;
     }
 
     @media (max-width: 600px) {
@@ -168,7 +254,8 @@
         font-size: 0.8rem;
       }
 
-      #refresh-btn {
+      #refresh-btn,
+      #theme-toggle {
         padding: 0.4rem 0.75rem;
         font-size: 0.8rem;
       }
@@ -201,6 +288,7 @@
     <span>Last updated: <strong id="last-updated">&mdash;</strong></span>
     <span>Next refresh in: <strong id="countdown">15:00</strong></span>
     <button id="refresh-btn">Refresh Now</button>
+    <button id="theme-toggle" aria-label="Toggle theme">&#9790;</button>
   </div>
 
   <div class="table-wrapper">
@@ -484,6 +572,29 @@
       var n = new Notification(title, { body: body });
       n.onclick = function () { window.focus(); };
     }
+
+    // --- Theme toggle ---
+    var themeToggle = document.getElementById("theme-toggle");
+
+    function applyTheme(dark) {
+      if (dark) {
+        document.body.classList.add("dark");
+        themeToggle.innerHTML = "&#9788;"; // sun
+      } else {
+        document.body.classList.remove("dark");
+        themeToggle.innerHTML = "&#9790;"; // moon
+      }
+    }
+
+    // Apply saved theme immediately to prevent flash
+    applyTheme(localStorage.getItem("theme") === "dark");
+
+    themeToggle.addEventListener("click", function () {
+      var isDark = document.body.classList.contains("dark");
+      var newDark = !isDark;
+      applyTheme(newDark);
+      localStorage.setItem("theme", newDark ? "dark" : "light");
+    });
 
     // --- Start ---
     init();
