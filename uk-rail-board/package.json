@@ -1,0 +1,7 @@
+{
+  "name": "uk-rail-board",
+  "version": "1.0.0",
+  "dependencies": {
+    "darwin-ldb-node": "^1.0.0"
+  }
+}
